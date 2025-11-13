@@ -1,8 +1,9 @@
-import { PomodoroSettings, PomodoroRecord } from '../types';
+import { PomodoroSettings, PomodoroRecord, TimerState } from '../types';
 
 const SETTINGS_KEY = 'pomodoro_settings';
 const RECORDS_KEY = 'pomodoro_records';
 const THEME_KEY = 'pomodoro_theme';
+const TIMER_STATE_KEY = 'pomodoro_timer_state';
 
 export const getSettings = (): PomodoroSettings => {
   const stored = localStorage.getItem(SETTINGS_KEY);
@@ -64,4 +65,24 @@ export const getTheme = (): 'light' | 'dark' => {
 
 export const saveTheme = (theme: 'light' | 'dark'): void => {
   localStorage.setItem(THEME_KEY, theme);
+};
+
+export const getTimerState = (): TimerState | null => {
+  const stored = localStorage.getItem(TIMER_STATE_KEY);
+  if (stored) {
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+export const saveTimerState = (state: TimerState): void => {
+  localStorage.setItem(TIMER_STATE_KEY, JSON.stringify(state));
+};
+
+export const clearTimerState = (): void => {
+  localStorage.removeItem(TIMER_STATE_KEY);
 };
