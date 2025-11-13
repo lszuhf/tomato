@@ -15,17 +15,24 @@ export default function PomodoroTimer() {
   });
   
   const intervalRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+  const initialDurationRef = useRef<number>(0);
 
   useEffect(() => {
     requestNotificationPermission();
   }, []);
 
   useEffect(() => {
-    if (timerState.isRunning && !timerState.isPaused) {
-      intervalRef.current = window.setInterval(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && timerState.isRunning && !timerState.isPaused && startTimeRef.current !== null) {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const newTimeRemaining = Math.max(0, initialDurationRef.current - elapsed);
+        
         setTimerState(prev => {
-          if (prev.timeRemaining <= 1) {
+          if (newTimeRemaining <= 0) {
             handleTimerComplete(prev.mode);
+            startTimeRef.current = null;
+            initialDurationRef.current = 0;
             return {
               ...prev,
               isRunning: false,
@@ -34,12 +41,55 @@ export default function PomodoroTimer() {
               mode: prev.mode === 'work' ? 'break' : 'work',
             };
           }
-          return { ...prev, timeRemaining: prev.timeRemaining - 1 };
+          return { ...prev, timeRemaining: newTimeRemaining };
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [timerState.isRunning, timerState.isPaused, timerState.mode, settings]);
+
+  useEffect(() => {
+    if (timerState.isRunning && !timerState.isPaused) {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now();
+        initialDurationRef.current = timerState.timeRemaining;
+      }
+
+      intervalRef.current = window.setInterval(() => {
+        if (startTimeRef.current === null) return;
+
+        const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const newTimeRemaining = Math.max(0, initialDurationRef.current - elapsed);
+
+        setTimerState(prev => {
+          if (newTimeRemaining <= 0) {
+            handleTimerComplete(prev.mode);
+            startTimeRef.current = null;
+            initialDurationRef.current = 0;
+            return {
+              ...prev,
+              isRunning: false,
+              isPaused: false,
+              timeRemaining: prev.mode === 'work' ? settings.breakDuration * 60 : settings.workDuration * 60,
+              mode: prev.mode === 'work' ? 'break' : 'work',
+            };
+          }
+          return { ...prev, timeRemaining: newTimeRemaining };
         });
       }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    } else {
+      if (timerState.isPaused) {
+        startTimeRef.current = null;
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
 
     return () => {
@@ -74,6 +124,8 @@ export default function PomodoroTimer() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    startTimeRef.current = null;
+    initialDurationRef.current = 0;
     setTimerState({
       isRunning: false,
       isPaused: false,
