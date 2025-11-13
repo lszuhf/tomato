@@ -10,18 +10,51 @@ export default function CustomTimer() {
   });
   
   const intervalRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && timerState.isRunning && !timerState.isPaused && startTimeRef.current !== null) {
+        const newElapsedTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        
+        setTimerState(prev => ({
+          ...prev,
+          elapsedTime: newElapsedTime,
+        }));
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [timerState.isRunning, timerState.isPaused]);
 
   useEffect(() => {
     if (timerState.isRunning && !timerState.isPaused) {
+      if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now() - (timerState.elapsedTime * 1000);
+      }
+
       intervalRef.current = window.setInterval(() => {
+        if (startTimeRef.current === null) return;
+
+        const newElapsedTime = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        
         setTimerState(prev => ({
           ...prev,
-          elapsedTime: prev.elapsedTime + 1,
+          elapsedTime: newElapsedTime,
         }));
       }, 1000);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+    } else {
+      if (timerState.isPaused) {
+        startTimeRef.current = null;
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
 
     return () => {
@@ -29,7 +62,7 @@ export default function CustomTimer() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [timerState.isRunning, timerState.isPaused]);
+  }, [timerState.isRunning, timerState.isPaused, timerState.elapsedTime]);
 
   const handleStartPause = () => {
     if (!timerState.isRunning) {
@@ -44,6 +77,7 @@ export default function CustomTimer() {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    startTimeRef.current = null;
     setTimerState({
       isRunning: false,
       isPaused: false,
