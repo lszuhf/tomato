@@ -1,24 +1,37 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Settings } from 'lucide-react';
 import { PomodoroSettings, TimerState } from '../types';
-import { getSettings, saveSettings, addPomodoroRecord } from '../utils/localStorage';
+import { getSettings, saveSettings, addPomodoroRecord, getTimerState, saveTimerState } from '../utils/localStorage';
 import { showNotification, playSound, requestNotificationPermission } from '../utils/notifications';
 
 export default function PomodoroTimer() {
   const [settings, setSettings] = useState<PomodoroSettings>(getSettings());
   const [showSettings, setShowSettings] = useState(false);
-  const [timerState, setTimerState] = useState<TimerState>({
-    isRunning: false,
-    isPaused: false,
-    timeRemaining: settings.workDuration * 60,
-    mode: 'work',
-  });
+  
+  const getInitialTimerState = (): TimerState => {
+    const savedState = getTimerState();
+    if (savedState) {
+      return savedState;
+    }
+    return {
+      isRunning: false,
+      isPaused: false,
+      timeRemaining: settings.workDuration * 60,
+      mode: 'work',
+    };
+  };
+  
+  const [timerState, setTimerState] = useState<TimerState>(getInitialTimerState());
   
   const intervalRef = useRef<number | null>(null);
 
   useEffect(() => {
     requestNotificationPermission();
   }, []);
+
+  useEffect(() => {
+    saveTimerState(timerState);
+  }, [timerState]);
 
   useEffect(() => {
     if (timerState.isRunning && !timerState.isPaused) {
